@@ -5,7 +5,7 @@ from django.core.mail import send_mail
 from django.db.models.signals import post_save, pre_save
 from django.template.loader import render_to_string
 
-from BruteBuster.models import FailedAttempt
+from BruteBuster.models import FailedAttempt, BB_MAX_FAILURES
 
 
 def send_notification(instance):
@@ -27,13 +27,14 @@ def send_notification(instance):
 def failed_attempt_pre_save_handler(sender, instance, signal, *args, **kwargs):
     if instance.id:
         old_object = FailedAttempt.objects.get(id=instance.id)
-        if old_object.failures < instance.failures:
+        if old_object.failures < instance.failures and instance.failures >= BB_MAX_FAILURES:
             send_notification(instance)
 
 
 def failed_attempt_post_save_handler(sender, instance, signal, *args, **kwargs):
     if kwargs['created'] == True:
-        send_notification(instance)
+        if instance.failures >= BB_MAX_FAILURES:
+            send_notification(instance)
 
 pre_save.connect(failed_attempt_pre_save_handler, sender=FailedAttempt)
 post_save.connect(failed_attempt_post_save_handler, sender=FailedAttempt)
